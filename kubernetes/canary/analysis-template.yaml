@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: web-health-check
+spec:
+  metrics:
+  - name: web-check
+    interval: 10s
+    count: 3
+    failureLimit: 1
+    provider:
+      web:
+        url: http://10.97.24.96/color
+        timeoutSeconds: 5
+    successCondition: result == "purple"

@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: rollout-canary-auto
+spec:
+  replicas: 4
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: rollout-canary-auto
+  template:
+    metadata:
+      labels:
+        app: rollout-canary-auto
+    spec:
+      containers:
+      - name: rollouts-demo
+        image: argoproj/rollouts-demo:blue
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+  strategy:
+    canary:
+      stableService: rollout-canary-auto-stable
+      canaryService: rollout-canary-auto-canary
+      steps:
+      - setWeight: 20
+      - pause: {duration: 10s}
+      - analysis:
+          templates:
+          - templateName: web-health-check
+      - setWeight: 50
+      - pause: {duration: 10s}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollout-canary-auto-stable
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: rollout-canary-auto
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollout-canary-auto-canary
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: rollout-canary-auto

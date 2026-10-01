@@ -65,3 +65,40 @@ Si el Canary ya se promociono al 100% y se quiere volver atras:
 
 Efecto: crea una nueva revision con la imagen anterior y la promociona
 completamente, restaurando la version estable anterior.
+
+## Analisis automatizado con AnalysisTemplate
+
+Se implemento un AnalysisTemplate que consulta el servicio canary via HTTP
+y evalua la respuesta. Si la condicion falla, Argo Rollouts revierte
+automaticamente sin intervencion humana.
+
+### Manifiestos
+
+- kubernetes/canary/analysis-template.yaml
+- kubernetes/canary/rollout-canary-automated.yaml
+
+### Como funciona
+
+1. El Rollout avanza al step 3 (analysis) tras llegar al 20% de trafico.
+2. Argo Rollouts lanza un AnalysisRun que hace 3 peticiones HTTP.
+3. Cada peticion evalua: result == "purple" (condicion IMPOSIBLE).
+4. Como la respuesta real es "green", el analisis falla.
+5. failureLimit: 1 -> al segundo fallo, el AnalysisRun se marca como Failed.
+6. Argo Rollouts aborta el despliegue automaticamente y vuelve a Blue.
+
+### Evidencia
+
+AnalysisRun final:
+    rollout-canary-auto-xxx-2-2.2   Failed   ✖ 2
+
+Mensaje del Rollout:
+    Metric "web-check" assessed Failed due to failed (2) > failureLimit (1)
+
+### Troubleshooting: DNS en Killercoda
+
+En entornos efimeros de Killercoda la resolucion DNS de nombres de servicio
+puede fallar desde el controlador de Argo Rollouts. Workaround: usar la
+ClusterIP del servicio en lugar del nombre DNS en el AnalysisTemplate.
+
+    kubectl get svc rollout-canary-auto-canary -o jsonpath='{.spec.clusterIP}'
+    # Usar esa IP en provider.web.url
