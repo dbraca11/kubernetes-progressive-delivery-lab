@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Kubernetes Progressive Delivery Lab - Walkthrough</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0e1a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* Header */
+  .header {
+    padding: 60px 20px 40px;
+    text-align: center;
+    background: radial-gradient(ellipse at top, rgba(124, 58, 237, 0.15), transparent 60%);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+  .header .logo {
+    font-size: 3rem;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 2.6rem;
+    margin-bottom: 12px;
+    background: linear-gradient(90deg, #38bdf8, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+  }
+  .header .subtitle {
+    color: #94a3b8;
+    font-size: 1.15rem;
+    max-width: 700px;
+    margin: 0 auto 20px;
+  }
+  .header .badges {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+  .tech-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(51, 65, 85, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #cbd5e1;
+  }
+
+  /* Container */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+
+  /* Section */
+  .section {
+    margin-bottom: 60px;
+  }
+  .section-title {
+    font-size: 1.8rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-title .icon {
+    font-size: 2rem;
+  }
+  .section-subtitle {
+    color: #94a3b8;
+    margin-bottom: 30px;
+    font-size: 1rem;
+  }
+
+  /* Strategy selector */
+  .strategy-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: 2px solid rgba(148, 163, 184, 0.2);
+    background: rgba(30, 41, 59, 0.6);
+    color: #94a3b8;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .tab-btn:hover {
+    border-color: rgba(148, 163, 184, 0.5);
+    color: #e2e8f0;
+  }
+  .tab-btn.active.blue-green {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a);
+    border-color: #3b82f6;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  }
+  .tab-btn.active.canary {
+    background: linear-gradient(135deg, #92400e, #78350f);
+    border-color: #f59e0b;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+  }
+
+  /* Walkthrough panel */
+  .walkthrough {
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    padding: 32px;
+  }
+  .strategy-content { display: none; }
+  .strategy-content.active { display: block; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Step timeline */
+  .steps-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .step-pill {
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgba(51, 65, 85, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .step-pill:hover { border-color: rgba(148, 163, 184, 0.5); }
+  .step-pill.active {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    border-color: #a78bfa;
+    color: #fff;
+  }
+  .step-pill.done {
+    background: rgba(22, 101, 52, 0.4);
+    border-color: #22c55e;
+    color: #86efac;
+  }
+
+  /* Step panel */
+  .step-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) {
+    .step-panel { grid-template-columns: 1fr; }
+  }
+
+  .terminal-box {
+    background: #0d1117;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    overflow: hidden;
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+    font-size: 0.82rem;
+  }
+  .terminal-header {
+    padding: 10px 16px;
+    background: rgba(30, 41, 59, 0.8);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .terminal-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .terminal-dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .terminal-dots span:nth-child(1) { background: #ef4444; }
+  .terminal-dots span:nth-child(2) { background: #f59e0b; }
+  .terminal-dots span:nth-child(3) { background: #22c55e; }
+  .terminal-body {
+    padding: 16px;
+    color: #e2e8f0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .terminal-body .prompt { color: #22c55e; }
+  .terminal-body .cmd { color: #e2e8f0; }
+  .terminal-body .output { color: #94a3b8; }
+  .terminal-body .success { color: #4ade80; }
+  .terminal-body .warn { color: #fbbf24; }
+  .terminal-body .error { color: #f87171; }
+  .terminal-body .info { color: #60a5fa; }
+
+  .state-panel {
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    padding: 20px;
+  }
+  .state-panel h4 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+    margin-bottom: 16px;
+  }
+  .state-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    font-size: 0.9rem;
+  }
+  .state-row:last-child { border-bottom: none; }
+  .state-row .key { color: #94a3b8; }
+  .state-row .value { font-weight: 700; font-family: "SF Mono", monospace; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .status-badge.healthy { background: #166534; color: #86efac; }
+  .status-badge.paused { background: #78350f; color: #fcd34d; }
+  .status-badge.degraded { background: #7f1d1d; color: #fca5a5; }
+  .status-badge.blue { background: #1e40af; color: #93c5fd; }
+  .status-badge.green { background: #166534; color: #86efac; }
+
+  /* Traffic visualization */
+  .traffic-viz {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 10px;
+  }
+  .traffic-viz h5 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    margin-bottom: 12px;
+  }
+  .traffic-bar {
+    display: flex;
+    height: 32px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    margin-bottom: 8px;
+  }
+  .traffic-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: #fff;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .traffic-segment.blue { background: linear-gradient(90deg, #1e40af, #3b82f6); }
+  .traffic-segment.green { background: linear-gradient(90deg, #166534, #22c55e); }
+  .traffic-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  /* Step navigation */
+  .step-nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 24px;
+    gap: 12px;
+  }
+  .nav-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(51, 65, 85, 0.6);
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover:not(:disabled) {
+    background: rgba(71, 85, 105, 0.9);
+    border-color: #38bdf8;
+  }
+  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .nav-btn.primary {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    border-color: #a78bfa;
+  }
+  .nav-btn.primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  }
+
+  /* Troubleshooting */
+  .ts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .ts-card {
+    background: rgba(30, 41, 59, 0.6);
+    border-radius: 14px;
+    padding: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    transition: all 0.25s;
+    cursor: default;
+  }
+  .ts-card:hover {
+    transform: translateY(-3px);
+    border-color: #38bdf8;
+    box-shadow: 0 10px 30px rgba(56, 189, 248, 0.1);
+  }
+  .ts-card .ts-icon {
+    font-size: 1.6rem;
+    margin-bottom: 12px;
+  }
+  .ts-card h4 {
+    font-size: 1rem;
+    color: #f1f5f9;
+    margin-bottom: 8px;
+  }
+  .ts-card .ts-symptom {
+    font-size: 0.8rem;
+    color: #f87171;
+    font-family: "SF Mono", monospace;
+    background: rgba(127, 29, 29, 0.2);
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+    word-break: break-word;
+  }
+  .ts-card .ts-solution {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 10px;
+  }
+  .ts-card .ts-cmd {
+    font-family: "SF Mono", monospace;
+    font-size: 0.78rem;
+    color: #4ade80;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+    word-break: break-all;
+  }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .stat {
+    background: rgba(30, 41, 59, 0.6);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+  .stat .num {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #38bdf8, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat .lbl {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+    font-size: 0.85rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+  }
+  footer a { color: #38bdf8; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">&#9881;&#65039;</div>
+  <h1>Kubernetes Progressive Delivery Lab</h1>
+  <p class="subtitle">
+    Walkthrough interactivo del proyecto real: Blue/Green y Canary deployments
+    implementados con Argo Rollouts sobre Kubernetes en Killercoda.
+  </p>
+  <div class="badges">
+    <span class="tech-badge">Kubernetes</span>
+    <span class="tech-badge">Argo Rollouts v1.10.0</span>
+    <span class="tech-badge">kubectl</span>
+    <span class="tech-badge">Killercoda</span>
+    <span class="tech-badge">GitHub Pages</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Walkthrough -->
+  <div class="section">
+    <h2 class="section-title"><span class="icon">&#127916;</span> Walkthrough paso a paso</h2>
+    <p class="section-subtitle">
+      Revive cada comando ejecutado en el laboratorio. Selecciona una estrategia
+      y navega por los pasos para ver el comando, la respuesta del cluster y el
+      estado resultante del Rollout.
+    </p>
+
+    <div class="strategy-tabs">
+      <button class="tab-btn active blue-green" onclick="switchStrategy('bluegreen')">
+        &#128309;&#128994; Blue/Green
+      </button>
+      <button class="tab-btn canary" onclick="switchStrategy('canary')">
+        &#128992; Canary
+      </button>
+    </div>
+
+    <div class="walkthrough">
+
+      <!-- BLUE/GREEN -->
+      <div class="strategy-content active" id="content-bluegreen">
+        <div class="steps-nav" id="nav-bluegreen"></div>
+        <div class="step-panel">
+          <div>
+            <div class="terminal-box">
+              <div class="terminal-header">
+                <div class="terminal-dots"><span></span><span></span><span></span></div>
+                <span id="bg-term-title">kubectl @ controlplane</span>
+              </div>
+              <div class="terminal-body" id="bg-terminal"></div>
+            </div>
+          </div>
+          <div>
+            <div class="state-panel">
+              <h4>Estado del Rollout</h4>
+              <div id="bg-state"></div>
+              <div class="traffic-viz">
+                <h5>Trafico</h5>
+                <div class="traffic-bar">
+                  <div class="traffic-segment blue" id="bg-traffic-blue" style="width: 100%;">Blue 100%</div>
+                  <div class="traffic-segment green" id="bg-traffic-green" style="width: 0%;"></div>
+                </div>
+                <div class="traffic-labels">
+                  <span>rollout-bluegreen-active</span>
+                  <span>rollout-bluegreen-preview</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step-nav-buttons">
+          <button class="nav-btn" id="bg-prev" onclick="bgStep(-1)">&#8592; Anterior</button>
+          <button class="nav-btn primary" id="bg-next" onclick="bgStep(1)">Siguiente &#8594;</button>
+        </div>
+      </div>
+
+      <!-- CANARY -->
+      <div class="strategy-content" id="content-canary">
+        <div class="steps-nav" id="nav-canary"></div>
+        <div class="step-panel">
+          <div>
+            <div class="terminal-box">
+              <div class="terminal-header">
+                <div class="terminal-dots"><span></span><span></span><span></span></div>
+                <span id="canary-term-title">kubectl @ controlplane</span>
+              </div>
+              <div class="terminal-body" id="canary-terminal"></div>
+            </div>
+          </div>
+          <div>
+            <div class="state-panel">
+              <h4>Estado del Rollout</h4>
+              <div id="canary-state"></div>
+              <div class="traffic-viz">
+                <h5>Trafico</h5>
+                <div class="traffic-bar">
+                  <div class="traffic-segment blue" id="canary-traffic-blue" style="width: 100%;">Stable 100%</div>
+                  <div class="traffic-segment green" id="canary-traffic-green" style="width: 0%;"></div>
+                </div>
+                <div class="traffic-labels">
+                  <span>rollout-canary-stable</span>
+                  <span>rollout-canary-canary</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step-nav-buttons">
+          <button class="nav-btn" id="canary-prev" onclick="canaryStep(-1)">&#8592; Anterior</button>
+          <button class="nav-btn primary" id="canary-next" onclick="canaryStep(1)">Siguiente &#8594;</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Troubleshooting -->
+  <div class="section">
+    <h2 class="section-title"><span class="icon">&#128295;</span> Troubleshooting real</h2>
+    <p class="section-subtitle">
+      Problemas encontrados durante la implementacion y sus soluciones documentadas
+      en <code>docs/troubleshooting.md</code>.
+    </p>
+
+    <div class="ts-grid">
+      <div class="ts-card">
+        <div class="ts-icon">&#128269;</div>
+        <h4>CRD rollouts.argoproj.io faltante</h4>
+        <div class="ts-symptom">no matches for kind "Rollout" in version "argoproj.io/v1alpha1"</div>
+        <div class="ts-solution">El CRD principal no se instalo correctamente. Faltaba solo <code>rollouts.argoproj.io</code>, aunque existian analysistemplates, clusteranalysistemplates y experiments.</div>
+        <div class="ts-cmd">kubectl apply --server-side=true --force-conflicts -k https://github.com/argoproj/argo-rollouts/manifests/crds?ref=stable</div>
+      </div>
+
+      <div class="ts-card">
+        <div class="ts-icon">&#128207;</div>
+        <h4>Limite de 256 KB en anotaciones</h4>
+        <div class="ts-symptom">metadata.annotations: Too long: must have at most 262144 bytes</div>
+        <div class="ts-solution">Client-Side Apply intenta guardar el manifiesto completo en una anotacion de etcd. Los CRDs de Argo Rollouts superan ese limite.</div>
+        <div class="ts-cmd">kubectl apply --server-side=true --force-conflicts -k ...</div>
+      </div>
+
+      <div class="ts-card">
+        <div class="ts-icon">&#8987;</div>
+        <h4>Race condition en port-forward</h4>
+        <div class="ts-symptom">curl: (7) Failed to connect to localhost port 8080</div>
+        <div class="ts-solution">El tunel de port-forward no esta listo cuando se ejecuta curl. Solucion: usar pods efimeros con curlimages/curl.</div>
+        <div class="ts-cmd">kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never -- curl -s http://rollout-bluegreen-active/color</div>
+      </div>
+
+      <div class="ts-card">
+        <div class="ts-icon">&#127760;</div>
+        <h4>Error de DNS en Killercoda</h4>
+        <div class="ts-symptom">dial tcp: lookup rollout-canary-canary on 10.96.0.10:53: no such host</div>
+        <div class="ts-solution">En entornos efimeros la resolucion DNS de servicios puede fallar desde el controlador. Workaround: usar la ClusterIP en lugar del nombre DNS.</div>
+        <div class="ts-cmd">kubectl get svc rollout-canary-canary -o jsonpath='{.spec.clusterIP}'</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="section">
+    <h2 class="section-title"><span class="icon">&#128202;</span> Resumen del proyecto</h2>
+    <div class="stats">
+      <div class="stat">
+        <div class="num">2</div>
+        <div class="lbl">Estrategias</div>
+      </div>
+      <div class="stat">
+        <div class="num">4</div>
+        <div class="lbl">Problemas resueltos</div>
+      </div>
+      <div class="stat">
+        <div class="num">7</div>
+        <div class="lbl">Pasos Canary</div>
+      </div>
+      <div class="stat">
+        <div class="num">3</div>
+        <div class="lbl">Releases GitHub</div>
+      </div>
+      <div class="stat">
+        <div class="num">100%</div>
+        <div class="lbl">Gratuito</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Proyecto:
+  <a href="https://github.com/dbraca11/kubernetes-progressive-delivery-lab" target="_blank">kubernetes-progressive-delivery-lab</a>
+  &nbsp;&middot;&nbsp; Argo Rollouts + Kubernetes + Killercoda
+</footer>
+
+<script>
+// ============= DATA =============
+const bluegreenSteps = [
+  {
+    title: "Instalar Argo Rollouts",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl create namespace argo-rollouts' },
+      { t: 'output', v: 'namespace/argo-rollouts created' },
+      { t: 'cmd', v: '$ kubectl apply --server-side=true --force-conflicts -k \\' },
+      { t: 'output', v: '    https://github.com/argoproj/argo-rollouts/manifests/crds?ref=stable' },
+      { t: 'success', v: 'customresourcedefinition.apiextensions.k8s.io/rollouts.argoproj.io serverside-applied' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'argoproj/rollouts-demo:blue (stable, active)',
+      step: '—',
+      weight: '100'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Blue 100%', greenLabel: '' }
+  },
+  {
+    title: "Deploy inicial (Blue)",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl apply -f kubernetes/blue-green/rollout-bluegreen.yaml' },
+      { t: 'output', v: 'rollout.argoproj.io/rollout-bluegreen created' },
+      { t: 'output', v: 'service/rollout-bluegreen-active created' },
+      { t: 'output', v: 'service/rollout-bluegreen-preview created' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-bluegreen' },
+      { t: 'success', v: 'Status:  ✔ Healthy' },
+      { t: 'info', v: 'Images:  argoproj/rollouts-demo:blue (stable, active)' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'blue (stable, active)',
+      step: '—',
+      weight: '100'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Blue 100%', greenLabel: '' }
+  },
+  {
+    title: "Patch a Green",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl patch rollout rollout-bluegreen --type=\'json\' \\' },
+      { t: 'output', v: '    -p=\'[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"argoproj/rollouts-demo:green"}]\'' },
+      { t: 'output', v: 'rollout.argoproj.io/rollout-bluegreen patched' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-bluegreen' },
+      { t: 'warn', v: 'Status:  ॥ Paused' },
+      { t: 'info', v: 'Message: BlueGreenPause' },
+      { t: 'info', v: 'Images:  blue (stable, active) | green (preview)' },
+    ],
+    state: {
+      status: 'paused',
+      images: 'blue (stable, active) + green (preview)',
+      step: 'Paused',
+      weight: '100 (Blue)'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Blue 100%', greenLabel: '' }
+  },
+  {
+    title: "Validar en preview",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl run curl-preview --image=curlimages/curl --rm -it \\' },
+      { t: 'output', v: '    --restart=Never -- curl -s http://rollout-bluegreen-preview/color' },
+      { t: 'success', v: '"green"' },
+      { t: 'cmd', v: '$ kubectl run curl-active --image=curlimages/curl --rm -it \\' },
+      { t: 'output', v: '    --restart=Never -- curl -s http://rollout-bluegreen-active/color' },
+      { t: 'info', v: '"blue"' },
+    ],
+    state: {
+      status: 'paused',
+      images: 'blue (stable, active) + green (preview)',
+      step: 'Paused',
+      weight: '100 (Blue)'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Blue 100%', greenLabel: '' }
+  },
+  {
+    title: "Promocion manual",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl argo rollouts promote rollout-bluegreen' },
+      { t: 'output', v: 'rollout \'rollout-bluegreen\' promoted' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-bluegreen' },
+      { t: 'success', v: 'Status:  ✔ Healthy' },
+      { t: 'info', v: 'Images:  argoproj/rollouts-demo:green (stable, active)' },
+      { t: 'warn', v: 'Revision 1 (Blue) → ScaledDown' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'green (stable, active)',
+      step: 'Promoted',
+      weight: '100 (Green)'
+    },
+    traffic: { blue: 0, green: 100, blueLabel: '', greenLabel: 'Green 100%' }
+  },
+  {
+    title: "Rollback con undo",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl argo rollouts undo rollout-bluegreen' },
+      { t: 'output', v: 'rollout \'rollout-bluegreen\' undo' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-bluegreen' },
+      { t: 'warn', v: 'Status:  ॥ Paused' },
+      { t: 'info', v: 'Message: BlueGreenPause' },
+      { t: 'info', v: 'Images:  blue (preview) | green (stable, active)' },
+      { t: 'output', v: '# Requiere promote adicional para completar el rollback' },
+      { t: 'cmd', v: '$ kubectl argo rollouts promote rollout-bluegreen' },
+      { t: 'success', v: 'Status:  ✔ Healthy' },
+      { t: 'info', v: 'Images:  argoproj/rollouts-demo:blue (stable, active)' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'blue (stable, active)',
+      step: 'Rolled back',
+      weight: '100 (Blue)'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Blue 100%', greenLabel: '' }
+  }
+];
+
+const canarySteps = [
+  {
+    title: "Deploy inicial (Blue)",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl apply -f kubernetes/canary/rollout-canary.yaml' },
+      { t: 'output', v: 'rollout.argoproj.io/rollout-canary created' },
+      { t: 'output', v: 'service/rollout-canary-stable created' },
+      { t: 'output', v: 'service/rollout-canary-canary created' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-canary' },
+      { t: 'success', v: 'Status:  ✔ Healthy' },
+      { t: 'info', v: 'Step:    7/7' },
+      { t: 'info', v: 'SetWeight: 100' },
+      { t: 'info', v: 'Images:  argoproj/rollouts-demo:blue (stable)' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'blue (stable)',
+      step: '7/7',
+      weight: '100'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Stable 100%', greenLabel: '' }
+  },
+  {
+    title: "Patch a Green - Pausa al 10%",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl patch rollout rollout-canary --type=\'json\' \\' },
+      { t: 'output', v: '    -p=\'[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"argoproj/rollouts-demo:green"}]\'' },
+      { t: 'output', v: 'rollout.argoproj.io/rollout-canary patched' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-canary' },
+      { t: 'warn', v: 'Status:  ॥ Paused' },
+      { t: 'info', v: 'Message: CanaryPauseStep' },
+      { t: 'info', v: 'Step:    1/7' },
+      { t: 'info', v: 'SetWeight: 10   ActualWeight: 20' },
+    ],
+    state: {
+      status: 'paused',
+      images: 'blue (stable) + green (canary)',
+      step: '1/7',
+      weight: '10'
+    },
+    traffic: { blue: 80, green: 20, blueLabel: 'Stable 80%', greenLabel: '10%' }
+  },
+  {
+    title: "Promote 1/3 - 25%",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl argo rollouts promote rollout-canary' },
+      { t: 'output', v: 'rollout \'rollout-canary\' promoted' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-canary' },
+      { t: 'warn', v: 'Status:  ॥ Paused' },
+      { t: 'info', v: 'Step:    3/7' },
+      { t: 'info', v: 'SetWeight: 25   ActualWeight: 25' },
+    ],
+    state: {
+      status: 'paused',
+      images: 'blue (stable) + green (canary)',
+      step: '3/7',
+      weight: '25'
+    },
+    traffic: { blue: 75, green: 25, blueLabel: 'Stable 75%', greenLabel: '25%' }
+  },
+  {
+    title: "Promote 2/3 - 50%",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl argo rollouts promote rollout-canary' },
+      { t: 'output', v: 'rollout \'rollout-canary\' promoted' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-canary' },
+      { t: 'warn', v: 'Status:  ॥ Paused' },
+      { t: 'info', v: 'Step:    5/7' },
+      { t: 'info', v: 'SetWeight: 50   ActualWeight: 50' },
+    ],
+    state: {
+      status: 'paused',
+      images: 'blue (stable) + green (canary)',
+      step: '5/7',
+      weight: '50'
+    },
+    traffic: { blue: 50, green: 50, blueLabel: 'Stable 50%', greenLabel: '50%' }
+  },
+  {
+    title: "Promote 3/3 - 100%",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl argo rollouts promote rollout-canary' },
+      { t: 'output', v: 'rollout \'rollout-canary\' promoted' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-canary' },
+      { t: 'success', v: 'Status:  ✔ Healthy' },
+      { t: 'info', v: 'Step:    7/7' },
+      { t: 'info', v: 'SetWeight: 100   ActualWeight: 100' },
+      { t: 'info', v: 'Images:  argoproj/rollouts-demo:green (stable)' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'green (stable)',
+      step: '7/7',
+      weight: '100'
+    },
+    traffic: { blue: 0, green: 100, blueLabel: '', greenLabel: 'Green 100%' }
+  },
+  {
+    title: "Rollback con undo",
+    terminal: [
+      { t: 'cmd', v: '$ kubectl argo rollouts undo rollout-canary' },
+      { t: 'output', v: 'rollout \'rollout-canary\' undo' },
+      { t: 'cmd', v: '$ kubectl argo rollouts promote rollout-canary --full' },
+      { t: 'output', v: 'rollout \'rollout-canary\' promoted' },
+      { t: 'cmd', v: '$ kubectl argo rollouts get rollout rollout-canary' },
+      { t: 'success', v: 'Status:  ✔ Healthy' },
+      { t: 'info', v: 'Images:  argoproj/rollouts-demo:blue (stable)' },
+      { t: 'warn', v: 'Revision 2 (Green) → ScaledDown' },
+    ],
+    state: {
+      status: 'healthy',
+      images: 'blue (stable)',
+      step: 'Rolled back',
+      weight: '100'
+    },
+    traffic: { blue: 100, green: 0, blueLabel: 'Stable 100%', greenLabel: '' }
+  }
+];
+
+// ============= LOGIC =============
+let bgIdx = 0;
+let canaryIdx = 0;
+
+function switchStrategy(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.strategy-content').forEach(c => c.classList.remove('active'));
+
+  if (name === 'bluegreen') {
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    document.getElementById('content-bluegreen').classList.add('active');
+  } else {
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    document.getElementById('content-canary').classList.add('active');
+  }
+}
+
+function renderStep(strategy, idx) {
+  const steps = strategy === 'bg' ? bluegreenSteps : canarySteps;
+  const step = steps[idx];
+  const prefix = strategy === 'bg' ? 'bg' : 'canary';
+
+  // Terminal
+  const term = document.getElementById(prefix + '-terminal');
+  term.innerHTML = step.terminal.map(l => {
+    const cls = l.t === 'cmd' ? 'cmd' :
+                l.t === 'success' ? 'success' :
+                l.t === 'warn' ? 'warn' :
+                l.t === 'error' ? 'error' :
+                l.t === 'info' ? 'info' : 'output';
+    return '<span class="' + cls + '">' + escapeHtml(l.v) + '</span>';
+  }).join('\n');
+
+  document.getElementById(prefix + '-term-title').textContent = 'kubectl @ controlplane  |  ' + step.title;
+
+  // State
+  const state = step.state;
+  const badgeClass = state.status === 'healthy' ? 'healthy' :
+                     state.status === 'paused' ? 'paused' : 'degraded';
+  const badgeText = state.status === 'healthy' ? '✔ Healthy' :
+                    state.status === 'paused' ? '॥ Paused' : '✖ Degraded';
+
+  document.getElementById(prefix + '-state').innerHTML =
+    '<div class="state-row"><span class="key">Status</span><span class="value"><span class="status-badge ' + badgeClass + '">' + badgeText + '</span></span></div>' +
+    '<div class="state-row"><span class="key">Images</span><span class="value">' + escapeHtml(state.images) + '</span></div>' +
+    '<div class="state-row"><span class="key">Step</span><span class="value">' + state.step + '</span></div>' +
+    '<div class="state-row"><span class="key">Weight</span><span class="value">' + state.weight + '</span></div>';
+
+  // Traffic
+  const blueBar = document.getElementById(prefix + '-traffic-blue');
+  const greenBar = document.getElementById(prefix + '-traffic-green');
+  blueBar.style.width = step.traffic.blue + '%';
+  greenBar.style.width = step.traffic.green + '%';
+  blueBar.textContent = step.traffic.blueLabel;
+  greenBar.textContent = step.traffic.greenLabel;
+
+  // Nav pills
+  const nav = document.getElementById('nav-' + (strategy === 'bg' ? 'bluegreen' : 'canary'));
+  nav.innerHTML = steps.map((s, i) => {
+    let cls = 'step-pill';
+    if (i === idx) cls += ' active';
+    else if (i < idx) cls += ' done';
+    return '<button class="' + cls + '" onclick="' + (strategy === 'bg' ? 'bgJump' : 'canaryJump') + '(' + i + ')">' + (i+1) + '. ' + s.title + '</button>';
+  }).join('');
+
+  // Buttons
+  document.getElementById(prefix + '-prev').disabled = idx === 0;
+  document.getElementById(prefix + '-next').disabled = idx === steps.length - 1;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function bgStep(delta) {
+  bgIdx = Math.max(0, Math.min(bluegreenSteps.length - 1, bgIdx + delta));
+  renderStep('bg', bgIdx);
+}
+
+function bgJump(i) {
+  bgIdx = i;
+  renderStep('bg', bgIdx);
+}
+
+function canaryStep(delta) {
+  canaryIdx = Math.max(0, Math.min(canarySteps.length - 1, canaryIdx + delta));
+  renderStep('canary', canaryIdx);
+}
+
+function canaryJump(i) {
+  canaryIdx = i;
+  renderStep('canary', canaryIdx);
+}
+
+// Init
+renderStep('bg', 0);
+renderStep('canary', 0);
+</script>
+
+</body>
+</html>
