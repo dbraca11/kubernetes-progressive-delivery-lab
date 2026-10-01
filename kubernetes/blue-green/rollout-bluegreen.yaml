@@ -1,0 +1,57 @@
+# rollout-bluegreen.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: rollout-bluegreen
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: rollout-bluegreen
+  template:
+    metadata:
+      labels:
+        app: rollout-bluegreen
+    spec:
+      containers:
+      - name: rollouts-demo
+        image: argoproj/rollouts-demo:blue  # Versión inicial (Blue)
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+  strategy:
+    blueGreen:
+      # Servicio que recibe el tráfico de producción (los usuarios)
+      activeService: rollout-bluegreen-active
+      # Servicio para probar la nueva versión antes de promocionarla
+      previewService: rollout-bluegreen-preview
+      # IMPORTANTE: Pausa el despliegue antes de promocionar.
+      # Esto te da control manual para validar la nueva versión.
+      autoPromotionEnabled: false
+---
+# Servicio "Active": recibe el tráfico de los usuarios
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollout-bluegreen-active
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: rollout-bluegreen
+---
+# Servicio "Preview": para probar la nueva versión (Green)
+apiVersion: v1
+kind: Service
+metadata:
+  name: rollout-bluegreen-preview
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: rollout-bluegreen
